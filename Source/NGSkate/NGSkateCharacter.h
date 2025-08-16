@@ -6,6 +6,7 @@
 #include "GameFramework/Character.h"
 #include "Logging/LogMacros.h"
 #include "Components/StaticMeshComponent.h"
+#include "Components/SceneComponent.h"
 #include "NGSkateCharacter.generated.h"
 
 class USpringArmComponent;
@@ -13,6 +14,7 @@ class UCameraComponent;
 class UInputMappingContext;
 class UInputAction;
 struct FInputActionValue;
+struct FAttachmentTransformRules;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogTemplateCharacter, Log, All);
 
@@ -67,22 +69,31 @@ public:
 	bool OnSkate;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Skate)
-	bool FallingOnSkateFalling;
+	bool IsFallingOnSkate;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Input)
 	FVector2D MovementVector;
+
+// Options
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Options)
+	float JumpStrength = 40.f;
+
+	
 	
 
 protected:
 
 	
 	void Move(const FInputActionValue& Value);
-
+	void EndMove();
 	
 	void Look(const FInputActionValue& Value);
 
 // Skate Functions
-
+	void SkateMoveInput(const FInputActionValue& Value);
 	void EnterSkateInput();
+	void EnterSkate();
+	void ExitSkate();
 	void JumpEvent();
 	void SkateJumpImpulse();
 	void Accelerate(float Strenght);
@@ -107,7 +118,11 @@ protected:
 
 private:
 
+	
+
 	void ProcessSkateInput();
+	void ProcessLateralInput(float Strength);
+	float GetPhysicsVelocity();
 	void IsSkateFallingCheck();
 	void SetMeshLocationAndRotation();
 	void CheckDirectionAngleBreak();

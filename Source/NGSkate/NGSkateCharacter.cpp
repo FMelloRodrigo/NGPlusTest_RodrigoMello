@@ -30,6 +30,8 @@ ANGSkateCharacter::ANGSkateCharacter()
 	GetCharacterMovement()->bOrientRotationToMovement = true; 	
 	GetCharacterMovement()->RotationRate = FRotator(0.0f, 500.0f, 0.0f); 
 
+	GetMesh()->SetCollisionResponseToChannel(ECollisionChannel::ECC_PhysicsBody, ECollisionResponse::ECR_Ignore);
+	GetCapsuleComponent()->SetCollisionResponseToChannel(ECollisionChannel::ECC_PhysicsBody, ECollisionResponse::ECR_Ignore);
 	
 	GetCharacterMovement()->JumpZVelocity = 700.f;
 	GetCharacterMovement()->AirControl = 0.35f;
@@ -52,20 +54,28 @@ ANGSkateCharacter::ANGSkateCharacter()
 	PhysicsBallMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("PhysicsBallMesh"));
 	PhysicsBallMesh->SetupAttachment(RootComponent);
 	PhysicsBallMesh->SetVisibility(false);
+	PhysicsBallMesh->SetCollisionObjectType(ECollisionChannel::ECC_PhysicsBody);
 
 	SkateMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("SkateMesh"));
 	SkateMesh->SetupAttachment(GetMesh(), TEXT("hand_r"));
 	SkateMesh->SetRelativeRotation(FRotator(0.f, 0.f, 0.f));
+	SkateMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 
 }
 
 void ANGSkateCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+	
+	if (OnSkate)
+	{
+		IsSkateFallingCheck();
+		SetMeshLocationAndRotation();
+		CheckDirectionAngleBreak();
+		ClampSpeed();
+	}
+	
 
-	ProcessSkateInput();
-	CheckDirectionAngleBreak();
-	ClampSpeed();
 }
 
 
@@ -94,8 +104,8 @@ void ANGSkateCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCo
 		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Completed, this, &ACharacter::StopJumping);
 
 		
-		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &ANGSkateCharacter::Move);
-
+		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &ANGSkateCharacter::SkateMoveInput);
+		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Completed, this, &ANGSkateCharacter::EndMove);
 		
 		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &ANGSkateCharacter::Look);
 
@@ -113,8 +123,6 @@ void ANGSkateCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCo
 void ANGSkateCharacter::Move(const FInputActionValue& Value)
 {
 	
-	MovementVector = Value.Get<FVector2D>();
-
 	if (Controller != nullptr)
 	{
 		
@@ -132,6 +140,10 @@ void ANGSkateCharacter::Move(const FInputActionValue& Value)
 		AddMovementInput(RightDirection, MovementVector.X);
 	}
 }
+void ANGSkateCharacter::EndMove()
+{
+	MovementVector = FVector2D::ZeroVector;
+}
 
 void ANGSkateCharacter::Look(const FInputActionValue& Value)
 {
@@ -146,10 +158,15 @@ void ANGSkateCharacter::Look(const FInputActionValue& Value)
 	}
 }
 
+void ANGSkateCharacter::SkateMoveInput(const FInputActionValue& Value)
+{
+	MovementVector = Value.Get<FVector2D>();
+	OnSkate ? ProcessSkateInput() : Move(Value);
+}
+
 void ANGSkateCharacter::EnterSkateInput()
 {
-
-
+	OnSkate ? ExitSkate() : EnterSkate();
 }
 
 void ANGSkateCharacter::JumpEvent()
@@ -161,7 +178,12 @@ void ANGSkateCharacter::SkateJumpImpulse()
 {
 	if (PhysicsBallMesh->IsSimulatingPhysics())
 	{
-		PhysicsBallMesh->AddImpulse(FVector(0.f, 0.f, 40000.f));
+		float LocalJumpSpeed;
+
+		// Small boost if in movement, to compesate
+		HasMovementInput() ? LocalJumpSpeed = (JumpStrength * 1.5f) : LocalJumpSpeed = JumpStrength;
+
+		PhysicsBallMesh->AddImpulse(FVector(0.f, 0.f, LocalJumpSpeed));
 	}
 }
 
@@ -169,16 +191,36 @@ void ANGSkateCharacter::ProcessSkateInput()
 {
 	if(OnSkate)
 	{
-		IsSkateFallingCheck();
-		SetMeshLocationAndRotation();
+		if (MovementVector.Y == 1)
+		{
+			CalculateSpeedDirection();
+			Accelerate(12);
+		}
+		if (MovementVector.Y == -1)
+		{
+			Break(45);
+		}
+		if (MovementVector.X != 0)
+		{
+			ProcessLateralInput(5);
+		}
 	}
+}
+void ANGSkateCharacter::ProcessLateralInput(float Strength)
+{
+	CalculateSpeedDirection();
+	if (GetPhysicsVelocity() > 500.f)
+	{	
+		Accelerate(5);
+	}
+
 }
 
 void ANGSkateCharacter::IsSkateFallingCheck()
 {
 	FHitResult HitResult;
-	FVector Start = GetActorLocation();
-	FVector End = Start + (GetActorUpVector() * 100.f);
+	FVector Start = PhysicsBallMesh->GetComponentLocation();
+	FVector End = Start + (GetActorUpVector() * (-80.f) );
 
 	TArray<TEnumAsByte<EObjectTypeQuery>> ObjectTypes;
 	ObjectTypes.Add(UEngineTypes::ConvertToObjectType(ECC_WorldStatic));
@@ -187,7 +229,7 @@ void ANGSkateCharacter::IsSkateFallingCheck()
 	TraceParams.AddIgnoredActor(this);
 
 
-	FallingOnSkateFalling = GetWorld()->LineTraceSingleByObjectType(HitResult,Start,End,FCollisionObjectQueryParams(ObjectTypes),TraceParams);
+	IsFallingOnSkate = !GetWorld()->LineTraceSingleByObjectType(HitResult,Start,End,FCollisionObjectQueryParams(ObjectTypes),TraceParams);
 }
 
 void ANGSkateCharacter::SetMeshLocationAndRotation()
@@ -196,24 +238,24 @@ void ANGSkateCharacter::SetMeshLocationAndRotation()
 	FVector Max;
 	PhysicsBallMesh->GetLocalBounds(Min, Max);
 
-	const FVector BallOffset = FVector(0.f, 0.f, GetCapsuleComponent()->GetScaledCapsuleHalfHeight() + Max.Z);
+	const FVector BallOffset = FVector(0.f, 0.f, GetCapsuleComponent()->GetScaledCapsuleHalfHeight() - Max.Z);
 	const FVector BallLocation = PhysicsBallMesh->GetComponentLocation() + BallOffset;
 	const FVector PhysVelocity = UKismetMathLibrary::Normal(( PhysicsBallMesh->GetPhysicsLinearVelocity()));
-	const FRotator PhysRotation = FRotator( 0.f, 0.f, UKismetMathLibrary::MakeRotFromX(PhysVelocity).Yaw);
+	const FRotator PhysRotation = FRotator( 0.f, UKismetMathLibrary::MakeRotFromX(PhysVelocity).Yaw, 0.f );
 
 	SetActorLocationAndRotation(BallLocation, PhysRotation);
 }
 
 void ANGSkateCharacter::CheckDirectionAngleBreak()
 {
-	const FRotator CalcRot = FRotator(0.f, 0.f, GetControlRotation().Yaw);
+	const FRotator CalcRot = FRotator(0.f, GetControlRotation().Yaw,0.f );
 	const FVector CalcDir = UKismetMathLibrary::GetForwardVector(CalcRot);
 	
 	const float AngleCalc = UKismetMathLibrary::Dot_VectorVector(CurrentMovementInput, CalcDir);
 	
 	if (AngleCalc <= (-0.75f))
 	{
-		Break(100);
+		Break(40);
 	}
 }
 
@@ -243,14 +285,12 @@ void ANGSkateCharacter::ClampSpeed()
 		PhysicsBallMesh->SetPhysicsLinearVelocity(ClampedVelocity);
 	}
 
-	else
+	else if (!HasMovementInput() && !IsFallingOnSkate)
+	
 	{
-		if (!HasMovementInput && !FallingOnSkateFalling)
-		{
-			Break(10);
-		}
+		Break(10);
 	}
-
+	
 }
 
 bool ANGSkateCharacter::HasMovementInput()
@@ -260,20 +300,60 @@ bool ANGSkateCharacter::HasMovementInput()
 
 FVector ANGSkateCharacter::CalcMovementInput()
 {
-	const FRotator LocalRot = FRotator(0.f, 0.f, GetControlRotation().Yaw);
+	const FRotator LocalRot = FRotator(0.f, GetControlRotation().Yaw, 0.f);
 	const FVector FDir = UKismetMathLibrary::GetForwardVector(LocalRot);
 	const FVector RDir = UKismetMathLibrary::GetRightVector(LocalRot);
 
-	return (FDir * MovementVector.X) + (RDir * MovementVector.Y);
+	return (FDir * MovementVector.Y) + (RDir * MovementVector.X);
 
 }
 
 void ANGSkateCharacter::Break(float Strenght)
 {
-	const float BreakStrength =( 100 - Strenght) * UGameplayStatics::GetWorldDeltaSeconds(this);
-	const float ClampedBreakStrength = UKismetMathLibrary::Clamp(BreakStrength, 0.1f, 0.99f);
-	const FVector PhysDir = PhysicsBallMesh->GetPhysicsLinearVelocity();
+	const float BrakeAlpha = FMath::Clamp(Strenght / 100.0f, 0.0f, 1.0f);
+	const float BrakePower = 5.0f;
+	const float Decay = FMath::Clamp(1.0f - (BrakeAlpha * UGameplayStatics::GetWorldDeltaSeconds(this) * BrakePower), 0.0f, 1.0f);
 
-	PhysicsBallMesh->SetPhysicsLinearVelocity(PhysDir * ClampedBreakStrength);
 
+	FVector PhysVel = PhysicsBallMesh->GetPhysicsLinearVelocity();
+
+	PhysicsBallMesh->SetPhysicsLinearVelocity(PhysVel * Decay);
+
+	//GEngine->AddOnScreenDebugMessage(-1, 0.1f, FColor::Yellow,FString::Printf(TEXT("Strength: %f | Decay: %f | Speed: %f"),Strenght, Decay, PhysVel.Size()));	
+}
+
+void ANGSkateCharacter::EnterSkate()
+{
+	if (!GetCharacterMovement()->IsFalling())
+	{
+		//const FAttachmentTransformRules& AttachmentRules(FAttachmentTransformRules::KeepRelativeTransform);
+
+		GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		GetCharacterMovement()->SetMovementMode(EMovementMode::MOVE_None);
+		PhysicsBallMesh->SetSimulatePhysics(true);
+		SkateMesh->AttachToComponent(GetMesh(), FAttachmentTransformRules::KeepRelativeTransform, TEXT("root"));
+		OnSkate = true;
+
+	}
+}
+
+void ANGSkateCharacter::ExitSkate()
+{
+	if (!IsFallingOnSkate)
+	{
+		//const FAttachmentTransformRules& AttachmentRules(FAttachmentTransformRules::SnapToTargetIncludingScale);
+
+		GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+		GetCharacterMovement()->SetMovementMode(EMovementMode::MOVE_Walking);
+		PhysicsBallMesh->SetSimulatePhysics(false);
+		SkateMesh->AttachToComponent(GetMesh(), FAttachmentTransformRules::KeepRelativeTransform, TEXT("hand_r"));
+		PhysicsBallMesh->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale);
+		OnSkate = false;
+
+	}
+}
+
+float ANGSkateCharacter::GetPhysicsVelocity()
+{
+	return PhysicsBallMesh->GetPhysicsLinearVelocity().Size();
 }
