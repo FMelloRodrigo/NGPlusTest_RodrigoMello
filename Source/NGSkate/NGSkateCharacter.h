@@ -22,6 +22,8 @@ class ANGSkateCharacter : public ACharacter
 	GENERATED_BODY()
 
 	
+
+	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
 	USpringArmComponent* CameraBoom;
 
@@ -56,7 +58,18 @@ class ANGSkateCharacter : public ACharacter
 	UStaticMeshComponent* SkateMesh;
 
 public:
+	
 	ANGSkateCharacter();
+
+	virtual void Tick(float DeltaTime) override;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Skate)
+	bool OnSkate;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Skate)
+	bool FallingOnSkateFalling;
+
+	FVector2D MovementVector;
 	
 
 protected:
@@ -67,7 +80,23 @@ protected:
 	
 	void Look(const FInputActionValue& Value);
 
+// Skate Functions
+
 	void EnterSkateInput();
+	void JumpEvent();
+	void SkateJumpImpulse();
+	void Accelerate(float Strenght);
+	void Break(float Strenght);
+
+
+
+// Skate Variables
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Skate)
+	FVector WantedMovementInput;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Skate)
+	FVector CurrentMovementInput;
 			
 
 protected:
@@ -75,6 +104,18 @@ protected:
 	virtual void NotifyControllerChanged() override;
 
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
+
+private:
+
+	void ProcessSkateInput();
+	void IsSkateFallingCheck();
+	void SetMeshLocationAndRotation();
+	void CheckDirectionAngleBreak();
+	void CalculateSpeedDirection();
+	void ClampSpeed();
+	bool HasMovementInput();
+	FVector CalcMovementInput();
+
 
 public:
 	
