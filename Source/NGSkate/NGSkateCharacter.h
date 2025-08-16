@@ -7,9 +7,12 @@
 #include "Logging/LogMacros.h"
 #include "Components/StaticMeshComponent.h"
 #include "Components/SceneComponent.h"
+#include "SkateCore/IScoreActor.h"
+#include "Components/BoxComponent.h"
 #include "NGSkateCharacter.generated.h"
 
 class USpringArmComponent;
+class UBoxComponent;
 class UCameraComponent;
 class UInputMappingContext;
 class UInputAction;
@@ -59,6 +62,9 @@ class ANGSkateCharacter : public ACharacter
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = SkateComponents, meta = (AllowPrivateAccess = "true"))
 	UStaticMeshComponent* SkateMesh;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = SkateComponents, meta = (AllowPrivateAccess = "true"))
+	UBoxComponent* JumpOverlapComponent;
+
 public:
 	
 	ANGSkateCharacter();
@@ -99,7 +105,12 @@ protected:
 	void Accelerate(float Strenght);
 	void Break(float Strenght);
 
+// Scoring
 
+	void CheckforJumpObstacles();
+
+	UFUNCTION()
+	void OnJumpOverlapEnd(UPrimitiveComponent* OverlappedComp,AActor* OtherActor,UPrimitiveComponent* OtherComp,int32 OtherBodyIndex);
 
 // Skate Variables
 

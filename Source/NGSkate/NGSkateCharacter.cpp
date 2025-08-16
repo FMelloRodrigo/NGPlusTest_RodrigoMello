@@ -11,6 +11,7 @@
 #include "EnhancedInputSubsystems.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "Kismet/GameplayStatics.h"
+#include "CollisionQueryParams.h"
 #include "InputActionValue.h"
 
 DEFINE_LOG_CATEGORY(LogTemplateCharacter);
@@ -46,6 +47,18 @@ ANGSkateCharacter::ANGSkateCharacter()
 	CameraBoom->TargetArmLength = 700.0f; 
 	CameraBoom->bUsePawnControlRotation = true; 
 
+	JumpOverlapComponent = CreateDefaultSubobject<UBoxComponent>(TEXT("BoxComponent"));
+	JumpOverlapComponent->SetupAttachment(GetCapsuleComponent());
+
+	JumpOverlapComponent->InitBoxExtent(FVector(10.f, 10.f, 50.f));
+	JumpOverlapComponent->SetRelativeLocation(FVector(0.f, 0.f, -120.f));
+
+	JumpOverlapComponent->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	JumpOverlapComponent->SetCollisionObjectType(ECC_WorldDynamic);
+	JumpOverlapComponent->SetCollisionResponseToAllChannels(ECR_Ignore);
+	JumpOverlapComponent->SetCollisionResponseToChannel(ECC_WorldDynamic, ECR_Overlap);
+
+	JumpOverlapComponent->OnComponentEndOverlap.AddDynamic(this, &ANGSkateCharacter::OnJumpOverlapEnd);
 	
 	FollowCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FollowCamera"));
 	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName); 
@@ -183,7 +196,8 @@ void ANGSkateCharacter::SkateJumpImpulse()
 		// Small boost if in movement, to compesate
 		HasMovementInput() ? LocalJumpSpeed = (JumpStrength * 1.5f) : LocalJumpSpeed = JumpStrength;
 
-		PhysicsBallMesh->AddImpulse(FVector(0.f, 0.f, LocalJumpSpeed));
+		// Need a High Value to be able to get off ground, 1000 seems enough
+		PhysicsBallMesh->AddImpulse(FVector(0.f, 0.f, LocalJumpSpeed * 1000));
 	}
 }
 
@@ -209,9 +223,9 @@ void ANGSkateCharacter::ProcessSkateInput()
 void ANGSkateCharacter::ProcessLateralInput(float Strength)
 {
 	CalculateSpeedDirection();
-	if (GetPhysicsVelocity() > 500.f)
+	if (GetPhysicsVelocity() > 200.f)
 	{	
-		Accelerate(5);
+		Accelerate(6);
 	}
 
 }
@@ -326,8 +340,7 @@ void ANGSkateCharacter::EnterSkate()
 {
 	if (!GetCharacterMovement()->IsFalling())
 	{
-		//const FAttachmentTransformRules& AttachmentRules(FAttachmentTransformRules::KeepRelativeTransform);
-
+		
 		GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 		GetCharacterMovement()->SetMovementMode(EMovementMode::MOVE_None);
 		PhysicsBallMesh->SetSimulatePhysics(true);
@@ -341,8 +354,7 @@ void ANGSkateCharacter::ExitSkate()
 {
 	if (!IsFallingOnSkate)
 	{
-		//const FAttachmentTransformRules& AttachmentRules(FAttachmentTransformRules::SnapToTargetIncludingScale);
-
+		
 		GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 		GetCharacterMovement()->SetMovementMode(EMovementMode::MOVE_Walking);
 		PhysicsBallMesh->SetSimulatePhysics(false);
@@ -356,4 +368,49 @@ void ANGSkateCharacter::ExitSkate()
 float ANGSkateCharacter::GetPhysicsVelocity()
 {
 	return PhysicsBallMesh->GetPhysicsLinearVelocity().Size();
+}
+/*
+void ANGSkateCharacter::CheckforJumpObstacles()
+{
+	if (IsSkateFallingCheck)
+	{
+		UWorld* World = GetWorld();
+		if (!World) return;
+
+		int32 ActorPoints;
+
+		FVector Start = GetActorLocation() + GetActorForwardVector() * (-30.f);
+		FVector End = Start + GetActorUpVector() * 80.f;
+		float SphereRadius = 50.f;
+		FCollisionShape Sphere = FCollisionShape::MakeSphere(SphereRadius);
+		FCollisionObjectQueryParams ObjectTypes;        
+		ObjectTypes.AddObjectTypesToQuery(ECC_WorldDynamic); 
+		FHitResult Hit;
+		FCollisionQueryParams Params;
+		Params.AddIgnoredActor(this); 
+
+		bool bHit = World->SweepSingleByObjectType(Hit,Start,End,FQuat::Identity,ObjectTypes,Sphere,Params);
+
+		if (Hit.GetActor() && Hit.GetActor()->GetClass()->ImplementsInterface(UIScoreActor::StaticClass()))
+		{
+			ActorPoints = IIScoreActor::Execute_GetScoreValue(Hit.GetActor());
+			//PlayerScore += Points;
+		}
+
+	}
+	
+
+}
+*/
+void ANGSkateCharacter::OnJumpOverlapEnd(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
+{
+	if (OnSkate)
+	{
+		if (OtherActor && OtherActor->GetClass()->ImplementsInterface(UIScoreActor::StaticClass()))
+		{
+			int32 ActorPoints = IIScoreActor::Execute_GetScoreValue(OtherActor);
+			GEngine->AddOnScreenDebugMessage(-88, 5.f, FColor::Green, FString::Printf(TEXT("Score: %d"), ActorPoints));
+		}
+	}
+	
 }
