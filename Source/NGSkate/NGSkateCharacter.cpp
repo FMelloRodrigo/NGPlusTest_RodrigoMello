@@ -52,6 +52,7 @@ ANGSkateCharacter::ANGSkateCharacter()
 	JumpOverlapComponent = CreateDefaultSubobject<UBoxComponent>(TEXT("BoxComponent"));
 	JumpOverlapComponent->SetupAttachment(GetCapsuleComponent());
 
+	// These are just the defaults, it can be adjusted in the blueprint
 	JumpOverlapComponent->InitBoxExtent(FVector(10.f, 25.f, 50.f));
 	JumpOverlapComponent->SetRelativeLocation(FVector(0.f, 0.f, -120.f));
 
@@ -158,6 +159,7 @@ void ANGSkateCharacter::Move(const FInputActionValue& Value)
 void ANGSkateCharacter::EndMove()
 {
 	MovementVector = FVector2D::ZeroVector;
+	SkateAccelerating = false;
 }
 
 void ANGSkateCharacter::Look(const FInputActionValue& Value)
@@ -224,19 +226,19 @@ void ANGSkateCharacter::ProcessSkateInput()
 {
 	if(OnSkate)
 	{
+		// The 0.3 value is a deadzone for gamepads
+		SkateAccelerating = (FMath::Sign(MovementVector.Y) == 1 && (FMath::Abs(MovementVector.X) < 0.3f) && !IsFallingOnSkate);
 		
-		SkateAccelerating = (MovementVector.Y == 1 && MovementVector.X == 0 && !IsFallingOnSkate);
-		
-		if (MovementVector.Y == 1)
+		if (FMath::Sign(MovementVector.Y) == 1)
 		{
 			CalculateSpeedDirection();
 			Accelerate(12);
 		}
-		if (MovementVector.Y == -1)
+		if (FMath::Sign(MovementVector.Y) == -1)
 		{
 			Break(45);
 		}
-		if (MovementVector.X != 0)
+		if (FMath::Sign(MovementVector.X) != 0)
 		{
 			ProcessLateralInput(5);
 		}
@@ -249,7 +251,7 @@ void ANGSkateCharacter::ProcessSkateInput()
 void ANGSkateCharacter::ProcessLateralInput(float Strength)
 {
 	CalculateSpeedDirection();
-	if (GetPhysicsVelocity() > 200.f)
+	if (GetPhysicsVelocity() > MinVelocityToTurnSkate)
 	{	
 		Accelerate(6);
 	}
@@ -297,7 +299,7 @@ void ANGSkateCharacter::CheckDirectionAngleBreak()
 	
 	const float AngleCalc = UKismetMathLibrary::Dot_VectorVector(CurrentMovementInput, CalcDir);
 	
-	if (AngleCalc <= (-0.75f))
+	if (AngleCalc <= (MaxAngleToAutoBreak * (-1) ))
 	{
 		Break(40);
 	}
@@ -322,9 +324,9 @@ void ANGSkateCharacter::ClampSpeed()
 	const FVector PhysDir = UKismetMathLibrary::Normal(PhysicsBallMesh->GetPhysicsLinearVelocity());
 	const float PhysSpeed = PhysicsBallMesh->GetPhysicsLinearVelocity().Size();
 	
-	const FVector ClampedVelocity = PhysDir * 1000.f;
+	const FVector ClampedVelocity = PhysDir * MaxSkateVelocity;
 	
-	if (PhysSpeed > 1000.f)
+	if (PhysSpeed > MaxSkateVelocity)
 	{
 		PhysicsBallMesh->SetPhysicsLinearVelocity(ClampedVelocity);
 	}
@@ -339,7 +341,7 @@ void ANGSkateCharacter::ClampSpeed()
 
 bool ANGSkateCharacter::HasMovementInput()
 {
-	return (MovementVector.X != 0 || MovementVector.Y != 0);
+	return (FMath::Sign(MovementVector.X) != 0 || FMath::Sign(MovementVector.Y) != 0);
 }
 
 FVector ANGSkateCharacter::CalcMovementInput()
@@ -355,15 +357,11 @@ FVector ANGSkateCharacter::CalcMovementInput()
 void ANGSkateCharacter::Break(float Strenght)
 {
 	const float BrakeAlpha = FMath::Clamp(Strenght / 100.0f, 0.0f, 1.0f);
-	const float BrakePower = 5.0f;
-	const float Decay = FMath::Clamp(1.0f - (BrakeAlpha * UGameplayStatics::GetWorldDeltaSeconds(this) * BrakePower), 0.0f, 1.0f);
-
+	const float Decay = FMath::Clamp(1.0f - (BrakeAlpha * UGameplayStatics::GetWorldDeltaSeconds(this) * SkateBrakePower), 0.0f, 1.0f);
 
 	FVector PhysVel = PhysicsBallMesh->GetPhysicsLinearVelocity();
 
 	PhysicsBallMesh->SetPhysicsLinearVelocity(PhysVel * Decay);
-
-	
 }
 
 void ANGSkateCharacter::EnterSkate()

@@ -5,7 +5,6 @@
 
 void ANGSkatePlayerState::ReportScore(int32 InScore, FName InName)
 {
-	GEngine->AddOnScreenDebugMessage(-88, 5.f, FColor::Green, FString::Printf(TEXT("Score: %d"), InScore));
 	
 	CurrentPlayerPoints += InScore;
 

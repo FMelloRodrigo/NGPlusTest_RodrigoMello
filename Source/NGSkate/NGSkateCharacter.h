@@ -89,8 +89,21 @@ public:
 	FVector2D MovementVector;
 
 // Options
+
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Options)
-	float JumpStrength = 40.f;
+	float JumpStrength = 42.f;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Options)
+	float MaxSkateVelocity = 1000.f;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Options)
+	float SkateBrakePower = 5.f;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Options)
+	float MaxAngleToAutoBreak = 0.75f;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Options)
+	float MinVelocityToTurnSkate = 200.f;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Options)
 	FName SkateFootSocketName ; 
@@ -103,7 +116,7 @@ public:
 
 protected:
 
-	
+// Input Functions
 	void Move(const FInputActionValue& Value);
 	void EndMove();
 	
@@ -146,13 +159,13 @@ private:
 
 	void ProcessSkateInput();
 	void ProcessLateralInput(float Strength);
-	float GetPhysicsVelocity();
 	void IsSkateFallingCheck();
 	void SetMeshLocationAndRotation();
 	void CheckDirectionAngleBreak();
 	void CalculateSpeedDirection();
 	void ClampSpeed();
 	bool HasMovementInput();
+	float GetPhysicsVelocity();
 	FVector CalcMovementInput();
 
 
