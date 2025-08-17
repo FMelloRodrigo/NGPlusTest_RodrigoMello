@@ -80,6 +80,9 @@ public:
 	bool WantsToJump;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Skate)
+	bool SkateAccelerating;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Skate)
 	bool IsFallingOnSkate;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Input)

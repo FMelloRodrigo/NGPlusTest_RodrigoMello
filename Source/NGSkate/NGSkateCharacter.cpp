@@ -212,10 +212,10 @@ void ANGSkateCharacter::SkateJumpImpulse()
 	{
 		float LocalJumpSpeed;
 
-		// Small boost if in movement, to compesate
+		// Small velocity boost if in movement, to be around the same height as standing still 
 		HasMovementInput() ? LocalJumpSpeed = (JumpStrength * 1.5f) : LocalJumpSpeed = JumpStrength;
 
-		// Need a High Value to be able to get off ground, 1000 seems enough
+		// Need a High Value to be able to get momemntum, 1000 seems enough
 		PhysicsBallMesh->AddImpulse(FVector(0.f, 0.f, LocalJumpSpeed * 1000));
 	}
 }
@@ -224,6 +224,9 @@ void ANGSkateCharacter::ProcessSkateInput()
 {
 	if(OnSkate)
 	{
+		
+		SkateAccelerating = (MovementVector.Y == 1 && MovementVector.X == 0 && !IsFallingOnSkate);
+		
 		if (MovementVector.Y == 1)
 		{
 			CalculateSpeedDirection();
@@ -237,6 +240,10 @@ void ANGSkateCharacter::ProcessSkateInput()
 		{
 			ProcessLateralInput(5);
 		}
+	}
+	else
+	{
+		SkateAccelerating = false;
 	}
 }
 void ANGSkateCharacter::ProcessLateralInput(float Strength)
@@ -356,7 +363,7 @@ void ANGSkateCharacter::Break(float Strenght)
 
 	PhysicsBallMesh->SetPhysicsLinearVelocity(PhysVel * Decay);
 
-	//GEngine->AddOnScreenDebugMessage(-1, 0.1f, FColor::Yellow,FString::Printf(TEXT("Strength: %f | Decay: %f | Speed: %f"),Strenght, Decay, PhysVel.Size()));	
+	
 }
 
 void ANGSkateCharacter::EnterSkate()
