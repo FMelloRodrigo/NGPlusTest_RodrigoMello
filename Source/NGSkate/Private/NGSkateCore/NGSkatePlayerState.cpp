@@ -1,7 +1,7 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 
-#include "NGSkatePlayerState.h"
+#include "NGSkateCore/NGSkatePlayerState.h"
 
 void ANGSkatePlayerState::ReportScore(int32 InScore, FName InName)
 {

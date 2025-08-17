@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
-#include "SkateCore/IScoreActor.h"
+#include "NGSkateCore/IScoreActor.h"
 #include "JumpObstacle.generated.h"
 
 UCLASS()

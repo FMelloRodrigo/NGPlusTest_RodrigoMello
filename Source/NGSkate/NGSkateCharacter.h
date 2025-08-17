@@ -7,10 +7,10 @@
 #include "Logging/LogMacros.h"
 #include "Components/StaticMeshComponent.h"
 #include "Components/SceneComponent.h"
-#include "SkateCore/IScoreActor.h"
+#include "NGSkateCore/IScoreActor.h"
 #include "Components/BoxComponent.h"
-#include "NGSkatePlayerState.h"
-#include "NGSkatePlayerController.h"
+#include "NGSkateCore/NGSkatePlayerState.h"
+#include "NGSkateCore/NGSkatePlayerController.h"
 #include "NGSkateCharacter.generated.h"
 
 class USpringArmComponent;

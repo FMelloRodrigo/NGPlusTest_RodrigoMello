@@ -1,5 +1,5 @@
 
-#include "SkateCore/NGSkateAnimInstance.h"
+#include "NGSkateCore/NGSkateAnimInstance.h"
 
 void UNGSkateAnimInstance::NativeInitializeAnimation()
 {
