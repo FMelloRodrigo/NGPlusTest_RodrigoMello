@@ -186,20 +186,29 @@ void ANGSkateCharacter::EnterSkateInput()
 
 void ANGSkateCharacter::JumpEvent()
 {
-	if (OnSkate)
+	if (OnSkate && !IsFallingOnSkate)
 	{
 		WantsToJump = true;
 	}		
 }
 void ANGSkateCharacter::JumpEndEvent()
 {
-	WantsToJump = false;
-	OnSkate ? SkateJumpImpulse() : Jump();
+	if (!OnSkate)
+	{
+		Jump();
+	}
+	if (WantsToJump)
+	{
+		SkateJumpImpulse();
+		WantsToJump = false;
+	}
+	
+	
 }
 
 void ANGSkateCharacter::SkateJumpImpulse()
 {
-	if (PhysicsBallMesh->IsSimulatingPhysics())
+	if (PhysicsBallMesh->IsSimulatingPhysics() && !IsFallingOnSkate)
 	{
 		float LocalJumpSpeed;
 
