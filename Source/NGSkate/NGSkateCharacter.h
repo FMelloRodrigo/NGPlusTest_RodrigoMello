@@ -9,6 +9,8 @@
 #include "Components/SceneComponent.h"
 #include "SkateCore/IScoreActor.h"
 #include "Components/BoxComponent.h"
+#include "NGSkatePlayerState.h"
+#include "NGSkatePlayerController.h"
 #include "NGSkateCharacter.generated.h"
 
 class USpringArmComponent;

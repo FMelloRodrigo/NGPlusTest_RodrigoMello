@@ -50,7 +50,7 @@ ANGSkateCharacter::ANGSkateCharacter()
 	JumpOverlapComponent = CreateDefaultSubobject<UBoxComponent>(TEXT("BoxComponent"));
 	JumpOverlapComponent->SetupAttachment(GetCapsuleComponent());
 
-	JumpOverlapComponent->InitBoxExtent(FVector(10.f, 10.f, 50.f));
+	JumpOverlapComponent->InitBoxExtent(FVector(10.f, 25.f, 50.f));
 	JumpOverlapComponent->SetRelativeLocation(FVector(0.f, 0.f, -120.f));
 
 	JumpOverlapComponent->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
@@ -408,8 +408,15 @@ void ANGSkateCharacter::OnJumpOverlapEnd(UPrimitiveComponent* OverlappedComp, AA
 	{
 		if (OtherActor && OtherActor->GetClass()->ImplementsInterface(UIScoreActor::StaticClass()))
 		{
-			int32 ActorPoints = IIScoreActor::Execute_GetScoreValue(OtherActor);
-			GEngine->AddOnScreenDebugMessage(-88, 5.f, FColor::Green, FString::Printf(TEXT("Score: %d"), ActorPoints));
+			const int32 NewActorPoints = IIScoreActor::Execute_GetScoreValue(OtherActor);
+			const FName ActionName = TEXT("Jumped Over Object");
+
+			// Ideally I would not use a direct cast like this, would instead use an interface, or maybe a subsystem, but time is running short
+			ANGSkatePlayerState* LocalPlayerState= CastChecked<ANGSkatePlayerState>(UGameplayStatics::GetPlayerState(this, 0));
+			if (LocalPlayerState)
+			{
+				LocalPlayerState->ReportScore(NewActorPoints, ActionName);
+			}
 		}
 	}
 	
