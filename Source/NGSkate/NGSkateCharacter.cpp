@@ -27,6 +27,8 @@ ANGSkateCharacter::ANGSkateCharacter()
 	bUseControllerRotationYaw = false;
 	bUseControllerRotationRoll = false;
 
+	SkateFootSocketName = TEXT("SkateFootSocket");
+	SkateHandSocketName = TEXT("hand_r");
 	
 	GetCharacterMovement()->bOrientRotationToMovement = true; 	
 	GetCharacterMovement()->RotationRate = FRotator(0.0f, 500.0f, 0.0f); 
@@ -70,7 +72,7 @@ ANGSkateCharacter::ANGSkateCharacter()
 	PhysicsBallMesh->SetCollisionObjectType(ECollisionChannel::ECC_PhysicsBody);
 
 	SkateMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("SkateMesh"));
-	SkateMesh->SetupAttachment(GetMesh(), TEXT("hand_r"));
+	SkateMesh->SetupAttachment(GetMesh(), SkateHandSocketName);
 	SkateMesh->SetRelativeRotation(FRotator(0.f, 0.f, 0.f));
 	SkateMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 
@@ -114,7 +116,7 @@ void ANGSkateCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCo
 		
 		
 		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Started, this, &ANGSkateCharacter::JumpEvent);
-		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Completed, this, &ACharacter::StopJumping);
+		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Completed, this, &ANGSkateCharacter::JumpEndEvent);
 
 		
 		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &ANGSkateCharacter::SkateMoveInput);
@@ -184,6 +186,14 @@ void ANGSkateCharacter::EnterSkateInput()
 
 void ANGSkateCharacter::JumpEvent()
 {
+	if (OnSkate)
+	{
+		WantsToJump = true;
+	}		
+}
+void ANGSkateCharacter::JumpEndEvent()
+{
+	WantsToJump = false;
 	OnSkate ? SkateJumpImpulse() : Jump();
 }
 
@@ -256,8 +266,12 @@ void ANGSkateCharacter::SetMeshLocationAndRotation()
 	const FVector BallLocation = PhysicsBallMesh->GetComponentLocation() + BallOffset;
 	const FVector PhysVelocity = UKismetMathLibrary::Normal(( PhysicsBallMesh->GetPhysicsLinearVelocity()));
 	const FRotator PhysRotation = FRotator( 0.f, UKismetMathLibrary::MakeRotFromX(PhysVelocity).Yaw, 0.f );
-
-	SetActorLocationAndRotation(BallLocation, PhysRotation);
+	
+	if (GetPhysicsVelocity() > 10.f)
+	{
+		SetActorLocationAndRotation(BallLocation, PhysRotation);
+	}
+	
 }
 
 void ANGSkateCharacter::CheckDirectionAngleBreak()
@@ -344,7 +358,7 @@ void ANGSkateCharacter::EnterSkate()
 		GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 		GetCharacterMovement()->SetMovementMode(EMovementMode::MOVE_None);
 		PhysicsBallMesh->SetSimulatePhysics(true);
-		SkateMesh->AttachToComponent(GetMesh(), FAttachmentTransformRules::KeepRelativeTransform, TEXT("root"));
+		SkateMesh->AttachToComponent(GetMesh(), FAttachmentTransformRules::KeepRelativeTransform, SkateFootSocketName);
 		OnSkate = true;
 
 	}
@@ -358,7 +372,7 @@ void ANGSkateCharacter::ExitSkate()
 		GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 		GetCharacterMovement()->SetMovementMode(EMovementMode::MOVE_Walking);
 		PhysicsBallMesh->SetSimulatePhysics(false);
-		SkateMesh->AttachToComponent(GetMesh(), FAttachmentTransformRules::KeepRelativeTransform, TEXT("hand_r"));
+		SkateMesh->AttachToComponent(GetMesh(), FAttachmentTransformRules::KeepRelativeTransform, SkateHandSocketName);
 		PhysicsBallMesh->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale);
 		OnSkate = false;
 
@@ -369,39 +383,7 @@ float ANGSkateCharacter::GetPhysicsVelocity()
 {
 	return PhysicsBallMesh->GetPhysicsLinearVelocity().Size();
 }
-/*
-void ANGSkateCharacter::CheckforJumpObstacles()
-{
-	if (IsSkateFallingCheck)
-	{
-		UWorld* World = GetWorld();
-		if (!World) return;
 
-		int32 ActorPoints;
-
-		FVector Start = GetActorLocation() + GetActorForwardVector() * (-30.f);
-		FVector End = Start + GetActorUpVector() * 80.f;
-		float SphereRadius = 50.f;
-		FCollisionShape Sphere = FCollisionShape::MakeSphere(SphereRadius);
-		FCollisionObjectQueryParams ObjectTypes;        
-		ObjectTypes.AddObjectTypesToQuery(ECC_WorldDynamic); 
-		FHitResult Hit;
-		FCollisionQueryParams Params;
-		Params.AddIgnoredActor(this); 
-
-		bool bHit = World->SweepSingleByObjectType(Hit,Start,End,FQuat::Identity,ObjectTypes,Sphere,Params);
-
-		if (Hit.GetActor() && Hit.GetActor()->GetClass()->ImplementsInterface(UIScoreActor::StaticClass()))
-		{
-			ActorPoints = IIScoreActor::Execute_GetScoreValue(Hit.GetActor());
-			//PlayerScore += Points;
-		}
-
-	}
-	
-
-}
-*/
 void ANGSkateCharacter::OnJumpOverlapEnd(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
 {
 	if (OnSkate)

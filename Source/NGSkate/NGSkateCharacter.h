@@ -77,6 +77,9 @@ public:
 	bool OnSkate;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Skate)
+	bool WantsToJump;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Skate)
 	bool IsFallingOnSkate;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Input)
@@ -86,7 +89,13 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Options)
 	float JumpStrength = 40.f;
 
-	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Options)
+	FName SkateFootSocketName ; 
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Options)
+	FName SkateHandSocketName;
+
+
 	
 
 protected:
@@ -103,13 +112,12 @@ protected:
 	void EnterSkate();
 	void ExitSkate();
 	void JumpEvent();
+	void JumpEndEvent();
 	void SkateJumpImpulse();
 	void Accelerate(float Strenght);
 	void Break(float Strenght);
 
 // Scoring
-
-	void CheckforJumpObstacles();
 
 	UFUNCTION()
 	void OnJumpOverlapEnd(UPrimitiveComponent* OverlappedComp,AActor* OtherActor,UPrimitiveComponent* OtherComp,int32 OtherBodyIndex);
